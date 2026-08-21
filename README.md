@@ -1,19 +1,55 @@
-# Mix Chicken Gestão Pro
+# HEALTH OS
 
-Versão profissional inicial do sistema de gestão do Mix Chicken, preparada para GitHub Pages e uso em celular.
+Sistema pessoal para gerenciamento de informações de saúde.
 
-## Módulos
-Dashboard, Vendas, Financeiro, Compras, Insumos, Estoque, Fichas Técnicas, Produtos, Relatórios e Configurações.
+## Recursos
 
-## Recursos principais
-- Interface desktop e mobile responsiva.
-- Navegação inferior no celular.
-- Registro de vendas com baixa automática dos ingredientes da ficha técnica.
-- Compras atualizam estoque e preço do insumo.
-- Fichas técnicas calculam custo, CMV e markup.
-- Dashboard com indicadores e gráficos.
-- Backup e restauração JSON.
-- Dados persistidos no navegador.
+- Dashboard inicial
+- Menu lateral com especialidades médicas
+- Histórico de consultas
+- Histórico de exames
+- Upload de arquivos PDF, PNG, JPG e JPEG
+- Agendamento de consultas
+- Contador regressivo para a próxima consulta
+- Indicador da última consulta
+- Dias restantes para cada especialidade
+- Página exclusiva para exames de sangue
+- Comparação de resultados laboratoriais
+- Registro de orientações e cuidados
+- Registro de medicamentos/condutas orientadas por profissionais
 
-## Próxima etapa para produção
-Para vários usuários/dispositivos, recomenda-se migrar o armazenamento para banco de dados com autenticação, API, permissões e auditoria. Também é recomendável separar CMV teórico de CMV contábil pelo método estoque inicial + compras - estoque final.
+## Especialidades
+
+O sistema possui inicialmente:
+
+- Cardiologia
+- Gastroenterologia
+- Oftalmologia
+- Infectologia
+- Endocrinologia
+- Dermatologia
+- Ortopedia
+- Neurologia
+- Ginecologia
+- Urologia
+- Otorrinolaringologia
+- Pneumologia
+- Nefrologia
+- Reumatologia
+- Psiquiatria
+- Clínica Geral
+- Odontologia
+
+## Estrutura
+
+```text
+health-os/
+│
+├── index.html
+├── app.js
+├── style.css
+├── README.md
+│
+└── uploads/
+    ├── exames/
+    └── documentos/
