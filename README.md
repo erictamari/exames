@@ -1,56 +1,55 @@
 # HEALTH OS
 
-Sistema pessoal de gestão de saúde feito com Next.js + Prisma + SQLite.
+Sistema pessoal para gerenciamento de informações de saúde.
 
 ## Recursos
 
-- Dashboard inicial com:
-  - próxima consulta por especialidade
-  - contador de dias
-  - última visita
-  - agenda
-  - indicadores gerais
-- Menu lateral com especialidades:
-  Cardiologia, Gastroenterologia, Oftalmologia, Infectologia, Endocrinologia,
-  Dermatologia, Ortopedia, Neurologia, Ginecologia, Urologia,
-  Otorrinolaringologia, Pneumologia, Nefrologia, Reumatologia,
-  Psiquiatria, Clínica Geral e Odontologia.
-- Histórico de consultas por especialidade.
-- Histórico de exames por especialidade.
-- Upload de PDF, PNG, JPG/JPEG.
-- Página exclusiva de exames de sangue.
-- Comparação de resultados atuais com resultados anteriores.
-- Área de acompanhamento pessoal por especialidade:
-  "O que melhorar", "O que fazer" e "Medicamentos/condutas registradas".
-- Busca e organização básica de registros.
+- Dashboard inicial
+- Menu lateral com especialidades médicas
+- Histórico de consultas
+- Histórico de exames
+- Upload de arquivos PDF, PNG, JPG e JPEG
+- Agendamento de consultas
+- Contador regressivo para a próxima consulta
+- Indicador da última consulta
+- Dias restantes para cada especialidade
+- Página exclusiva para exames de sangue
+- Comparação de resultados laboratoriais
+- Registro de orientações e cuidados
+- Registro de medicamentos/condutas orientadas por profissionais
 
-## Rodar localmente
+## Especialidades
 
-Requisitos: Node.js 20+.
+O sistema possui inicialmente:
 
-```bash
-npm install
-npx prisma generate
-npx prisma db push
-npm run dev
-```
+- Cardiologia
+- Gastroenterologia
+- Oftalmologia
+- Infectologia
+- Endocrinologia
+- Dermatologia
+- Ortopedia
+- Neurologia
+- Ginecologia
+- Urologia
+- Otorrinolaringologia
+- Pneumologia
+- Nefrologia
+- Reumatologia
+- Psiquiatria
+- Clínica Geral
+- Odontologia
 
-Abra http://localhost:3000
+## Estrutura
 
-Para popular dados de exemplo:
-
-```bash
-npm run db:seed
-```
-
-## Uploads
-
-Nesta versão, os arquivos ficam em `uploads/`.
-Isso é adequado para desenvolvimento/local. Em produção, troque o armazenamento
-por S3, Supabase Storage, Cloudflare R2 ou outro storage persistente.
-
-## Importante
-
-O campo de medicamentos/condutas é um registro pessoal. O sistema não diagnostica
-e não prescreve medicamentos. Use-o para registrar orientações dadas por profissionais
-de saúde e confirmar qualquer conduta com seu médico.
+```text
+health-os/
+│
+├── index.html
+├── app.js
+├── style.css
+├── README.md
+│
+└── uploads/
+    ├── exames/
+    └── documentos/
