@@ -1,67 +1,2151 @@
-const DEMO={config:{labor:5200,fixed:2800,target:20000},ingredients:[
-{id:1,name:"Filé de frango",unit:"kg",price:18.9,supplier:"Atacado",stock:32,min:10},
-{id:2,name:"Batata congelada",unit:"kg",price:12.5,supplier:"Distribuidor",stock:25,min:8},
-{id:3,name:"Linguiça de frango",unit:"kg",price:21.9,supplier:"Atacado",stock:12,min:5},
-{id:4,name:"Farinha de trigo",unit:"kg",price:6.8,supplier:"Atacado",stock:9,min:4},
-{id:5,name:"Óleo de soja",unit:"L",price:7.9,supplier:"Atacado",stock:18,min:6},
-{id:6,name:"Gochujang",unit:"kg",price:39.9,supplier:"Importados",stock:2.5,min:1},
-{id:7,name:"Molho de laranja",unit:"kg",price:22,supplier:"Produção própria",stock:3,min:1},
-{id:8,name:"Muçarela",unit:"kg",price:34.9,supplier:"Laticínios",stock:5,min:2}],products:[
-{id:1,name:"TRIO",price:45,recipe:[{i:1,q:.18},{i:3,q:.15},{i:2,q:.25}],sold:96},
-{id:2,name:"Frango Supremo",price:85,recipe:[{i:1,q:.65},{i:4,q:.08},{i:5,q:.04}],sold:72},
-{id:3,name:"Korean Chicken",price:59.9,recipe:[{i:1,q:.45},{i:6,q:.06},{i:4,q:.06},{i:5,q:.03}],sold:58},
-{id:4,name:"Orange Chicken",price:59.9,recipe:[{i:1,q:.45},{i:7,q:.08},{i:4,q:.06},{i:5,q:.03}],sold:44},
-{id:5,name:"Porção Mista G",price:72,recipe:[{i:1,q:.4},{i:3,q:.2},{i:2,q:.25}],sold:51},
-{id:6,name:"Porção Frango Empanado G",price:79,recipe:[{i:1,q:.65},{i:4,q:.08},{i:5,q:.04}],sold:63},
-{id:7,name:"Mac & Cheese + Frango",price:36.9,recipe:[{i:1,q:.16},{i:8,q:.06},{i:4,q:.03}],sold:39}],sales:[
-{id:1,date:"2026-08-20",product:1,qty:5},{id:2,date:"2026-08-20",product:3,qty:3},{id:3,date:"2026-08-19",product:2,qty:2},
-{id:4,date:"2026-08-19",product:5,qty:4},{id:5,date:"2026-08-18",product:4,qty:3},{id:6,date:"2026-08-18",product:7,qty:5}],transactions:[
-{id:1,date:"2026-08-20",type:"entrada",cat:"Vendas",desc:"Vendas do dia",value:1240},
-{id:2,date:"2026-08-19",type:"entrada",cat:"Vendas",desc:"Vendas do dia",value:980},
-{id:3,date:"2026-08-18",type:"entrada",cat:"Vendas",desc:"Vendas do dia",value:1120},
-{id:4,date:"2026-08-18",type:"saida",cat:"Insumos",desc:"Compra de frango",value:540},
-{id:5,date:"2026-08-17",type:"saida",cat:"Insumos",desc:"Compra de batata",value:280},
-{id:6,date:"2026-08-15",type:"saida",cat:"Mão de obra",desc:"Folha",value:5200},
-{id:7,date:"2026-08-10",type:"saida",cat:"Despesas",desc:"Energia",value:780}],purchases:[]};
-let S=JSON.parse(localStorage.getItem("mixPro")||"null")||structuredClone(DEMO), charts={};
-const $=id=>document.getElementById(id), money=n=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(n||0), pct=n=>(n||0).toFixed(1).replace(".",",")+"%", ing=id=>S.ingredients.find(x=>x.id==id), prod=id=>S.products.find(x=>x.id==id);
-const cost=p=>(p.recipe||[]).reduce((a,r)=>a+(ing(r.i)?.price||0)*r.q,0), cmv=p=>p.price?cost(p)/p.price*100:0, markup=p=>cost(p)?p.price/cost(p):0, save=()=>localStorage.setItem("mixPro",JSON.stringify(S));
-const nav=[["dashboard","⌂","Início"],["vendas","＋","Vendas"],["financeiro","R$","Financeiro"],["compras","▤","Compras"],["insumos","◫","Insumos"],["estoque","□","Estoque"],["fichas","⚖","Fichas"],["relatorios","▥","Relatórios"]];
-function buildNav(){let a=$("sideNav"),b=$("bottomNav");a.innerHTML=nav.map(n=>`<button class="navbtn" data-go="${n[0]}">${n[1]} <span>${n[2]}</span></button>`).join("");b.innerHTML=nav.slice(0,5).map(n=>`<button data-go="${n[0]}"><span class="nav-icon">${n[1]}</span>${n[2]}</button>`).join("")+`<button data-go="mais"><span class="nav-icon">•••</span>Mais</button>`;document.querySelectorAll("[data-go]").forEach(x=>x.onclick=()=>go(x.dataset.go))}
-function go(id){if(id==="mais")id="estoque";document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll("[data-go]").forEach(x=>x.classList.toggle("active",x.dataset.go===id));$("title").textContent=({dashboard:"Dashboard",vendas:"Vendas",financeiro:"Financeiro",compras:"Compras",insumos:"Insumos",estoque:"Estoque",fichas:"Fichas técnicas",produtos:"Produtos",relatorios:"Relatórios",config:"Configurações"})[id]||"Estoque";render()}
-function toast(x){let t=$("toast");t.textContent=x;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2000)}
-function modal(title,body,cb){$("modalTitle").textContent=title;$("form").innerHTML=body;$("modal").classList.remove("hidden");$("form").onsubmit=e=>{e.preventDefault();cb(new FormData(e.target));close()}}
-function close(){$("modal").classList.add("hidden")}$("close").onclick=close;
-function periodTx(){let d=+ $("period").value, start=new Date();start.setDate(start.getDate()-d);return S.transactions.filter(t=>new Date(t.date)>=start)}
-function revenue(){return S.sales.reduce((a,s)=>a+prod(s.product).price*s.qty,0)}
-function dashboard(){let tx=periodTx(),rev=tx.filter(t=>t.type==="entrada"&&t.cat==="Vendas").reduce((a,t)=>a+t.value,0),cm=tx.filter(t=>t.type==="saida"&&t.cat==="Insumos").reduce((a,t)=>a+t.value,0),lab=tx.filter(t=>t.type==="saida"&&t.cat==="Mão de obra").reduce((a,t)=>a+t.value,0),orders=S.sales.reduce((a,s)=>a+s.qty,0),margin=rev?((rev-cm-lab)/rev*100):0;
-$("mRevenue").textContent=money(rev);$("mCMV").textContent=pct(rev?cm/rev*100:0);$("mCMVSub").textContent=money(cm);$("mCMO").textContent=pct(rev?lab/rev*100:0);$("mCMOSub").textContent=money(lab);$("mMargin").textContent=pct(margin);$("mMarginSub").textContent=money(rev-cm-lab);$("mTicket").textContent=money(orders?rev/orders:0);$("mOrders").textContent=orders+" unidades";
-$("alerts").innerHTML=S.ingredients.filter(i=>i.stock<=i.min).map(i=>`<div class="alert"><span>${i.name}</span><b>${i.stock} ${i.unit}</b></div>`).join("")||`<p class="muted">Nenhum item crítico.</p>`;
-Object.values(charts).forEach(c=>c.destroy());charts={};let labels=["1","2","3","4","5","6","7"],base=rev||6000;
-charts.s=new Chart($("salesChart"),{type:"line",data:{labels:labels.map(x=>"Sem. "+x),datasets:[{label:"Faturamento",data:labels.map((_,i)=>base*(.7+i*.05)),tension:.3},{label:"Custos",data:labels.map((_,i)=>(cm+lab||base*.6)*(.75+i*.035)),tension:.3}]},options:{responsive:true,plugins:{legend:{position:"bottom"}}}});
-charts.c=new Chart($("costChart"),{type:"doughnut",data:{labels:["CMV","CMO","Outros"],datasets:[{data:[cm,lab,Math.max(0,rev-cm-lab-margin*rev/100)]}]},options:{plugins:{legend:{position:"bottom"}}}});
-let top=[...S.products].sort((a,b)=>b.sold-a.sold).slice(0,6);charts.t=new Chart($("topChart"),{type:"bar",data:{labels:top.map(p=>p.name),datasets:[{label:"Unidades",data:top.map(p=>p.sold)}]},options:{indexAxis:"y",plugins:{legend:{display:false}}}});
+/* =====================================================
+   HEALTH OS
+   Sistema pessoal de gerenciamento de saúde
+===================================================== */
+
+
+/* =====================================================
+   ESPECIALIDADES
+===================================================== */
+
+const specialties = [
+
+    {
+        id: "cardiologia",
+        name: "Cardiologia",
+        icon: "❤️"
+    },
+
+    {
+        id: "gastroenterologia",
+        name: "Gastroenterologia",
+        icon: "🩺"
+    },
+
+    {
+        id: "oftalmologia",
+        name: "Oftalmologia",
+        icon: "👁️"
+    },
+
+    {
+        id: "infectologia",
+        name: "Infectologia",
+        icon: "🦠"
+    },
+
+    {
+        id: "endocrinologia",
+        name: "Endocrinologia",
+        icon: "🧬"
+    },
+
+    {
+        id: "dermatologia",
+        name: "Dermatologia",
+        icon: "✨"
+    },
+
+    {
+        id: "ortopedia",
+        name: "Ortopedia",
+        icon: "🦴"
+    },
+
+    {
+        id: "neurologia",
+        name: "Neurologia",
+        icon: "🧠"
+    },
+
+    {
+        id: "ginecologia",
+        name: "Ginecologia",
+        icon: "🌸"
+    },
+
+    {
+        id: "urologia",
+        name: "Urologia",
+        icon: "💧"
+    },
+
+    {
+        id: "otorrinolaringologia",
+        name: "Otorrinolaringologia",
+        icon: "👂"
+    },
+
+    {
+        id: "pneumologia",
+        name: "Pneumologia",
+        icon: "🫁"
+    },
+
+    {
+        id: "nefrologia",
+        name: "Nefrologia",
+        icon: "🫘"
+    },
+
+    {
+        id: "reumatologia",
+        name: "Reumatologia",
+        icon: "🦵"
+    },
+
+    {
+        id: "psiquiatria",
+        name: "Psiquiatria",
+        icon: "💬"
+    },
+
+    {
+        id: "clinica-geral",
+        name: "Clínica Geral",
+        icon: "➕"
+    },
+
+    {
+        id: "odontologia",
+        name: "Odontologia",
+        icon: "🦷"
+    }
+
+];
+
+
+/* =====================================================
+   BANCO LOCAL
+===================================================== */
+
+let appointments =
+    JSON.parse(
+        localStorage.getItem("healthAppointments")
+    ) || [];
+
+
+let exams =
+    JSON.parse(
+        localStorage.getItem("healthExams")
+    ) || [];
+
+
+let bloodResults =
+    JSON.parse(
+        localStorage.getItem("healthBloodResults")
+    ) || [];
+
+
+let healthNotes =
+    JSON.parse(
+        localStorage.getItem("healthNotes")
+    ) || {};
+
+
+let currentSpecialty = null;
+
+
+/* =====================================================
+   INICIALIZAÇÃO
+===================================================== */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        buildSpecialtyMenu();
+
+        updateAppointmentSpecialtySelect();
+
+        renderDashboard();
+
+        renderAgenda();
+
+        renderBloodResults();
+
+        startCountdowns();
+
+    }
+);
+
+
+/* =====================================================
+   MENU LATERAL
+===================================================== */
+
+function buildSpecialtyMenu() {
+
+    const menu =
+        document.getElementById(
+            "specialtyMenu"
+        );
+
+    menu.innerHTML = "";
+
+
+    specialties.forEach(
+        specialty => {
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.className =
+                "menu-item";
+
+            button.innerHTML = `
+                <span>
+                    ${specialty.icon}
+                </span>
+
+                <span>
+                    ${specialty.name}
+                </span>
+            `;
+
+            button.onclick =
+                function () {
+
+                    openSpecialty(
+                        specialty.id
+                    );
+
+                };
+
+
+            menu.appendChild(button);
+
+        }
+    );
+
 }
-function sales(){let today=new Date().toISOString().slice(0,10),ts=S.sales.filter(s=>s.date===today),r=ts.reduce((a,s)=>a+prod(s.product).price*s.qty,0);$("todayRevenue").textContent=money(r);$("todayOrders").textContent=ts.reduce((a,s)=>a+s.qty,0);$("todayTicket").textContent=money(ts.length?r/ts.reduce((a,s)=>a+s.qty,0):0);let q=($("saleSearch").value||"").toLowerCase();$("salesTable").innerHTML=S.sales.slice().reverse().filter(s=>prod(s.product).name.toLowerCase().includes(q)).map(s=>{let p=prod(s.product),tot=p.price*s.qty;return`<tr><td>${s.date}</td><td>${p.name}</td><td>${s.qty}</td><td>${money(p.price)}</td><td>${money(tot)}</td><td>${pct(cmv(p))}</td><td><button class="icon-btn delete" onclick="delSale(${s.id})">×</button></td></tr>`}).join("")}
-function finance(){let ins=S.transactions.filter(t=>t.type==="entrada").reduce((a,t)=>a+t.value,0),out=S.transactions.filter(t=>t.type==="saida").reduce((a,t)=>a+t.value,0);$("finIn").textContent=money(ins);$("finOut").textContent=money(out);$("finNet").textContent=money(ins-out);let q=($("txSearch").value||"").toLowerCase();$("txTable").innerHTML=S.transactions.slice().reverse().filter(t=>(t.desc+" "+t.cat).toLowerCase().includes(q)).map(t=>`<tr><td>${t.date}</td><td>${t.type==="entrada"?"Entrada":"Saída"}</td><td>${t.cat}</td><td>${t.desc}</td><td class="${t.type==="entrada"?"positive":"negative"}">${money(t.value)}</td><td><button class="icon-btn delete" onclick="delTx(${t.id})">×</button></td></tr>`).join("")}
-function ingredients(){let q=($("ingredientSearch").value||"").toLowerCase();$("ingredientTable").innerHTML=S.ingredients.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<tr><td>${i.name}</td><td>${i.unit}</td><td>${money(i.price)}</td><td>${i.supplier}</td><td>${i.stock}</td><td>${i.min}</td><td><button class="icon-btn" onclick="editIng(${i.id})">✎</button><button class="icon-btn delete" onclick="delIng(${i.id})">×</button></td></tr>`).join("")}
-function stock(){let val=S.ingredients.reduce((a,i)=>a+i.stock*i.price,0),low=S.ingredients.filter(i=>i.stock<=i.min).length;$("stockValue").textContent=money(val);$("stockCount").textContent=S.ingredients.length;$("stockCritical").textContent=low;let q=($("stockSearch").value||"").toLowerCase();$("stockTable").innerHTML=S.ingredients.filter(i=>i.name.toLowerCase().includes(q)).map(i=>`<tr><td>${i.name}</td><td>${i.stock}</td><td>${i.unit}</td><td>${money(i.price)}</td><td>${money(i.stock*i.price)}</td><td><span class="tag ${i.stock<=i.min?"low":"ok"}">${i.stock<=i.min?"Repor":"OK"}</span></td><td><button class="icon-btn" onclick="move(${i.id})">Mov.</button></td></tr>`).join("")}
-function recipes(){let html=S.products.map(p=>`<article class="recipe"><div class="panel-title"><div><h3>${p.name}</h3><span class="badge">${p.sold} vendidos</span></div><button class="icon-btn" onclick="editProduct(${p.id})">✎</button></div><div class="recipe-price">${money(p.price)}</div>${p.recipe.map(r=>`<div class="recipe-line"><span>${ing(r.i)?.name||"—"} × ${r.q}</span><b>${money((ing(r.i)?.price||0)*r.q)}</b></div>`).join("")}<div class="recipe-total"><span>Custo</span><b>${money(cost(p))}</b></div><div class="recipe-total"><span>CMV</span><b>${pct(cmv(p))}</b></div><div class="recipe-total"><span>Markup</span><b>${markup(p).toFixed(2)}x</b></div></article>`).join("");$("recipeGrid").innerHTML=html}
-function products(){ $("productTable").innerHTML=S.products.map(p=>`<tr><td>${p.name}</td><td>${money(p.price)}</td><td>${money(cost(p))}</td><td>${pct(cmv(p))}</td><td>${markup(p).toFixed(2)}x</td><td>${money(p.price-cost(p))}</td><td>${p.sold}</td><td><button class="icon-btn" onclick="editProduct(${p.id})">✎</button><button class="icon-btn delete" onclick="delProduct(${p.id})">×</button></td></tr>`).join("")}
-function reports(){$("profitTable").innerHTML=S.products.slice().sort((a,b)=>cmv(a)-cmv(b)).map(p=>`<tr><td>${p.name}</td><td>${money(p.price)}</td><td>${money(cost(p))}</td><td>${money(p.price-cost(p))}</td><td>${pct(cmv(p))}</td></tr>`).join("");let rev=revenue(),c=S.products.reduce((a,p)=>a+cost(p)*p.sold,0),ticket=S.sales.length?rev/S.sales.reduce((a,s)=>a+s.qty,0):0;$("indicators").innerHTML=[["Faturamento acumulado",money(rev)],["CMV teórico por vendas",pct(rev?c/rev*100:0)],["Ticket médio",money(ticket)],["Produto com melhor margem",[...S.products].sort((a,b)=>(b.price-cost(b))-(a.price-cost(a)))[0]?.name||"—"],["Produtos cadastrados",S.products.length]].map(x=>`<div class="indicator"><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}
-function config(){ $("cfgLabor").value=S.config.labor;$("cfgFixed").value=S.config.fixed;$("cfgTarget").value=S.config.target}
-function purchases(){ $("purchaseTable").innerHTML=S.purchases.slice().reverse().map(p=>`<tr><td>${p.date}</td><td>${ing(p.i)?.name}</td><td>${p.q}</td><td>${money(p.unit)}</td><td>${money(p.q*p.unit)}</td><td>${p.supplier||"—"}</td><td><button class="icon-btn delete" onclick="delPurchase(${p.id})">×</button></td></tr>`).join("")}
-function render(){dashboard();sales();finance();ingredients();stock();recipes();products();reports();config();purchases()}
-function newSale(){modal("Registrar venda",`<div class="form-grid"><label>Data<input name="date" type="date" value="${new Date().toISOString().slice(0,10)}" required></label><label>Produto<select name="product">${S.products.map(p=>`<option value="${p.id}">${p.name} — ${money(p.price)}</option>`).join("")}</select></label><label>Quantidade<input name="qty" type="number" min="1" value="1" required></label></div><button class="primary">Registrar</button>`,d=>{let p=prod(d.get("product")),q=+d.get("qty"),date=d.get("date");S.sales.push({id:Date.now(),date,product:+d.get("product"),qty:q});p.sold+=q;S.transactions.push({id:Date.now()+1,date,type:"entrada",cat:"Vendas",desc:p.name,value:p.price*q});p.recipe.forEach(r=>{let i=ing(r.i);i.stock=Math.max(0,i.stock-r.q*q)});save();toast("Venda registrada e estoque baixado");render()})}
-function newTx(){modal("Novo lançamento",`<div class="form-row"><label>Data<input name="date" type="date" value="${new Date().toISOString().slice(0,10)}"></label><label>Tipo<select name="type"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label></div><label>Categoria<select name="cat"><option>Vendas</option><option>Insumos</option><option>Mão de obra</option><option>Despesas</option><option>Impostos</option><option>Marketing</option><option>Outros</option></select></label><label>Descrição<input name="desc" required></label><label>Valor<input name="value" type="number" step=".01" min="0" required></label><button class="primary">Salvar</button>`,d=>{S.transactions.push({id:Date.now(),date:d.get("date"),type:d.get("type"),cat:d.get("cat"),desc:d.get("desc"),value:+d.get("value")});save();toast("Lançamento salvo");render()})}
-function newIngredient(old){let i=old||{id:Date.now(),name:"",unit:"kg",price:0,supplier:"",stock:0,min:0};modal(old?"Editar insumo":"Novo insumo",`<label>Nome<input name="name" value="${i.name}" required></label><div class="form-row"><label>Unidade<select name="unit"><option>kg</option><option>g</option><option>L</option><option>un</option></select></label><label>Preço unitário<input name="price" type="number" step=".0001" value="${i.price}"></label></div><label>Fornecedor<input name="supplier" value="${i.supplier}"></label><div class="form-row"><label>Estoque<input name="stock" type="number" step=".001" value="${i.stock}"></label><label>Mínimo<input name="min" type="number" step=".001" value="${i.min}"></label></div><button class="primary">Salvar</button>`,d=>{Object.assign(i,{name:d.get("name"),unit:d.get("unit"),price:+d.get("price"),supplier:d.get("supplier"),stock:+d.get("stock"),min:+d.get("min")});if(!old)S.ingredients.push(i);save();toast("Insumo salvo");render()})}
-function newPurchase(){modal("Nova compra",`<label>Data<input name="date" type="date" value="${new Date().toISOString().slice(0,10)}"></label><label>Insumo<select name="i">${S.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join("")}</select></label><div class="form-row"><label>Quantidade<input name="q" type="number" step=".001" min=".001" required></label><label>Preço unitário<input name="unit" type="number" step=".0001" min="0" required></label></div><label>Fornecedor<input name="supplier"></label><button class="primary">Registrar compra</button>`,d=>{let q=+d.get("q"),u=+d.get("unit"),i=ing(d.get("i"));i.stock+=q;i.price=u;S.purchases.push({id:Date.now(),date:d.get("date"),i:+d.get("i"),q,unit:u,supplier:d.get("supplier")});S.transactions.push({id:Date.now()+1,date:d.get("date"),type:"saida",cat:"Insumos",desc:"Compra de "+i.name,value:q*u});save();toast("Compra registrada e estoque atualizado");render()})}
-function move(id){let i=ing(id);modal("Movimentar estoque",`<label>Insumo<input value="${i.name}" disabled></label><div class="form-row"><label>Tipo<select name="type"><option value="in">Entrada</option><option value="out">Saída</option><option value="loss">Perda</option></select></label><label>Quantidade<input name="q" type="number" step=".001" min=".001" required></label></div><button class="primary">Aplicar</button>`,d=>{let q=+d.get("q");i.stock=Math.max(0,i.stock+(d.get("type")==="in"?q:-q));save();toast("Estoque atualizado");render()})}
-function newProduct(old){let p=old||{id:Date.now(),name:"",price:0,sold:0,recipe:[{i:S.ingredients[0]?.id,q:0}]};modal(old?"Editar produto":"Nova ficha técnica",`<label>Produto<input name="name" value="${p.name}" required></label><div class="form-row"><label>Preço de venda<input name="price" type="number" step=".01" value="${p.price}"></label><label>Vendidos<input name="sold" type="number" value="${p.sold}"></label></div><div id="recipeFields">${p.recipe.map((r,n)=>`<div class="form-row r"><label>Insumo<select name="i${n}">${S.ingredients.map(i=>`<option value="${i.id}" ${i.id==r.i?"selected":""}>${i.name}</option>`).join("")}</select></label><label>Quantidade<input name="q${n}" type="number" step=".001" value="${r.q}"></label></div>`).join("")}</div><button type="button" class="secondary" id="addIngRow">+ Ingrediente</button><button class="primary">Salvar ficha</button>`,d=>{let n=document.querySelectorAll("#recipeFields .r").length;let recipe=[];for(let j=0;j<n;j++)recipe.push({i:+d.get("i"+j),q:+d.get("q"+j)});Object.assign(p,{name:d.get("name"),price:+d.get("price"),sold:+d.get("sold"),recipe});if(!old)S.products.push(p);save();toast("Ficha técnica salva");render()});$("addIngRow").onclick=()=>{let n=document.querySelectorAll("#recipeFields .r").length;$("recipeFields").insertAdjacentHTML("beforeend",`<div class="form-row r"><label>Insumo<select name="i${n}">${S.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join("")}</select></label><label>Quantidade<input name="q${n}" type="number" step=".001" value="0"></label></div>`)}}
-window.delSale=id=>{if(confirm("Excluir venda?")){S.sales=S.sales.filter(x=>x.id!==id);save();render()}};window.delTx=id=>{if(confirm("Excluir lançamento?")){S.transactions=S.transactions.filter(x=>x.id!==id);save();render()}};window.editIng=id=>newIngredient(ing(id));window.delIng=id=>{if(confirm("Excluir insumo?")){S.ingredients=S.ingredients.filter(x=>x.id!=id);save();render()}};window.move=move;window.editProduct=id=>newProduct(prod(id));window.delProduct=id=>{if(confirm("Excluir produto?")){S.products=S.products.filter(x=>x.id!=id);save();render()}};window.delPurchase=id=>{if(confirm("Excluir compra do histórico? Isso não desfaz o estoque automaticamente.")){S.purchases=S.purchases.filter(x=>x.id!=id);save();render()}};
-function backup(){let a=document.createElement("a"),b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});a.href=URL.createObjectURL(b);a.download="mix-chicken-backup.json";a.click();URL.revokeObjectURL(a.href)}
-$("newSale").onclick=newSale;$("quickSale").onclick=newSale;$("newTx").onclick=newTx;$("newIngredient").onclick=()=>newIngredient();$("newPurchase").onclick=newPurchase;$("newMovement").onclick=()=>move(S.ingredients[0]?.id);$("newProduct").onclick=()=>newProduct();$("newProduct2").onclick=()=>newProduct();$("period").onchange=render;["saleSearch","txSearch","ingredientSearch","stockSearch"].forEach(x=>$(x).oninput=render);
-$("saveCfg").onclick=()=>{S.config.labor=+$("cfgLabor").value;S.config.fixed=+$("cfgFixed").value;S.config.target=+$("cfgTarget").value;save();toast("Configurações salvas");render()};
-$("exportBtn").onclick=backup;$("export2").onclick=backup;$("importBtn").onclick=()=>$("fileInput").click();$("fileInput").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader;r.onload=()=>{try{S=JSON.parse(r.result);save();render();toast("Backup restaurado")}catch{toast("Arquivo inválido")}};r.readAsText(f)};
-$("reset").onclick=()=>{if(confirm("Restaurar os dados de demonstração?")){S=structuredClone(DEMO);save();render();toast("Dados restaurados")}};$("printReport").onclick=()=>window.print();
-buildNav();go("dashboard");
+
+
+/* =====================================================
+   NAVEGAÇÃO
+===================================================== */
+
+function showPage(pageId) {
+
+    document
+        .querySelectorAll(".page")
+        .forEach(
+            page => {
+
+                page.classList.remove(
+                    "active-page"
+                );
+
+            }
+        );
+
+
+    const page =
+        document.getElementById(
+            pageId
+        );
+
+
+    if (page) {
+
+        page.classList.add(
+            "active-page"
+        );
+
+    }
+
+
+    window.scrollTo(
+        {
+            top: 0,
+            behavior: "smooth"
+        }
+    );
+
+
+    if (pageId === "dashboard") {
+
+        renderDashboard();
+
+    }
+
+
+    if (pageId === "agenda") {
+
+        renderAgenda();
+
+    }
+
+
+    if (pageId === "sangue") {
+
+        renderBloodResults();
+
+    }
+
+}
+
+
+/* =====================================================
+   ABRIR ESPECIALIDADE
+===================================================== */
+
+function openSpecialty(id) {
+
+    currentSpecialty = id;
+
+
+    showPage(
+        "specialtyPage"
+    );
+
+
+    const specialty =
+        getSpecialty(id);
+
+
+    if (!specialty) return;
+
+
+    document.getElementById(
+        "specialtyTitle"
+    ).innerHTML =
+        `${specialty.icon} ${specialty.name}`;
+
+
+    document.getElementById(
+        "specialtyDescription"
+    ).textContent =
+        "Histórico, exames, consultas e acompanhamento.";
+
+
+    renderSpecialty();
+
+}
+
+
+/* =====================================================
+   BUSCAR ESPECIALIDADE
+===================================================== */
+
+function getSpecialty(id) {
+
+    return specialties.find(
+        specialty =>
+            specialty.id === id
+    );
+
+}
+
+
+/* =====================================================
+   DASHBOARD
+===================================================== */
+
+function renderDashboard() {
+
+    document.getElementById(
+        "totalSpecialties"
+    ).textContent =
+        specialties.length;
+
+
+    const futureAppointments =
+        appointments.filter(
+            appointment =>
+                new Date(
+                    appointment.date
+                ) >= new Date()
+        );
+
+
+    document.getElementById(
+        "totalAppointments"
+    ).textContent =
+        futureAppointments.length;
+
+
+    document.getElementById(
+        "totalExams"
+    ).textContent =
+        exams.length;
+
+
+    const sorted =
+        [...appointments]
+            .sort(
+                (a, b) =>
+                    new Date(a.date) -
+                    new Date(b.date)
+            );
+
+
+    const past =
+        sorted.filter(
+            appointment =>
+                new Date(
+                    appointment.date
+                ) < new Date()
+        );
+
+
+    if (past.length) {
+
+        document.getElementById(
+            "lastVisit"
+        ).textContent =
+            formatDate(
+                past[past.length - 1].date
+            );
+
+    }
+
+
+    renderUpcomingAppointments();
+
+    renderSpecialtyDashboard();
+
+}
+
+
+/* =====================================================
+   PRÓXIMAS CONSULTAS
+===================================================== */
+
+function renderUpcomingAppointments() {
+
+    const container =
+        document.getElementById(
+            "upcomingAppointments"
+        );
+
+
+    const future =
+        appointments
+            .filter(
+                appointment =>
+                    new Date(
+                        appointment.date
+                    ) >= new Date()
+            )
+            .sort(
+                (a, b) =>
+                    new Date(a.date) -
+                    new Date(b.date)
+            )
+            .slice(0, 5);
+
+
+    if (!future.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhuma consulta agendada.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        future.map(
+            appointment => {
+
+                const specialty =
+                    getSpecialty(
+                        appointment.specialty
+                    );
+
+
+                return `
+
+                    <div class="appointment-item">
+
+                        <div class="appointment-info">
+
+                            <strong>
+                                ${specialty.icon}
+                                ${specialty.name}
+                            </strong>
+
+                            <span>
+                                ${formatDateTime(
+                                    appointment.date
+                                )}
+                            </span>
+
+                            <br>
+
+                            <span>
+                                ${appointment.doctor || "Profissional não informado"}
+                            </span>
+
+                        </div>
+
+
+                        <div>
+
+                            <div class="countdown"
+                                 data-date="${appointment.date}">
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+}
+
+
+/* =====================================================
+   ESPECIALIDADES NO DASHBOARD
+===================================================== */
+
+function renderSpecialtyDashboard() {
+
+    const container =
+        document.getElementById(
+            "specialtyDashboard"
+        );
+
+
+    container.innerHTML =
+        specialties.map(
+            specialty => {
+
+                const next =
+                    getNextAppointment(
+                        specialty.id
+                    );
+
+
+                return `
+
+                    <div
+                        class="specialty-card"
+                        onclick="openSpecialty('${specialty.id}')"
+                    >
+
+                        <strong>
+                            ${specialty.icon}
+                            ${specialty.name}
+                        </strong>
+
+                        <span>
+
+                            ${
+                                next
+                                ?
+                                "Próxima: " +
+                                formatDate(next.date)
+                                :
+                                "Sem consulta agendada"
+                            }
+
+                        </span>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+}
+
+
+/* =====================================================
+   AGENDA
+===================================================== */
+
+function renderAgenda() {
+
+    const container =
+        document.getElementById(
+            "agendaList"
+        );
+
+
+    if (!appointments.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhuma consulta cadastrada.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    const sorted =
+        [...appointments]
+            .sort(
+                (a, b) =>
+                    new Date(a.date) -
+                    new Date(b.date)
+            );
+
+
+    container.innerHTML =
+        sorted.map(
+            appointment => {
+
+                const specialty =
+                    getSpecialty(
+                        appointment.specialty
+                    );
+
+
+                const future =
+                    new Date(
+                        appointment.date
+                    ) >= new Date();
+
+
+                return `
+
+                    <div class="appointment-item">
+
+                        <div class="appointment-info">
+
+                            <strong>
+                                ${specialty.icon}
+                                ${specialty.name}
+                            </strong>
+
+                            <span>
+                                ${formatDateTime(
+                                    appointment.date
+                                )}
+                            </span>
+
+                            <br>
+
+                            <span>
+                                ${appointment.doctor || "Profissional não informado"}
+                            </span>
+
+                            <br>
+
+                            <span>
+                                ${appointment.location || ""}
+                            </span>
+
+                        </div>
+
+
+                        <div>
+
+                            ${
+                                future
+                                ?
+                                `<div
+                                    class="countdown"
+                                    data-date="${appointment.date}"
+                                ></div>`
+                                :
+                                `<span class="badge">
+                                    Consulta passada
+                                </span>`
+                            }
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+}
+
+
+/* =====================================================
+   ABRIR MODAL CONSULTA
+===================================================== */
+
+function openAppointmentModal() {
+
+    updateAppointmentSpecialtySelect();
+
+
+    if (currentSpecialty) {
+
+        document.getElementById(
+            "appointmentSpecialty"
+        ).value =
+            currentSpecialty;
+
+    }
+
+
+    document
+        .getElementById(
+            "appointmentModal"
+        )
+        .classList.add(
+            "open"
+        );
+
+}
+
+
+/* =====================================================
+   SELECT DE ESPECIALIDADES
+===================================================== */
+
+function updateAppointmentSpecialtySelect() {
+
+    const select =
+        document.getElementById(
+            "appointmentSpecialty"
+        );
+
+
+    select.innerHTML =
+        specialties.map(
+            specialty => `
+
+                <option
+                    value="${specialty.id}"
+                >
+                    ${specialty.icon}
+                    ${specialty.name}
+                </option>
+
+            `
+        ).join("");
+
+}
+
+
+/* =====================================================
+   SALVAR CONSULTA
+===================================================== */
+
+function saveAppointment(event) {
+
+    event.preventDefault();
+
+
+    const appointment = {
+
+        id:
+            Date.now(),
+
+        specialty:
+            document.getElementById(
+                "appointmentSpecialty"
+            ).value,
+
+        date:
+            document.getElementById(
+                "appointmentDate"
+            ).value,
+
+        doctor:
+            document.getElementById(
+                "appointmentDoctor"
+            ).value,
+
+        location:
+            document.getElementById(
+                "appointmentLocation"
+            ).value,
+
+        notes:
+            document.getElementById(
+                "appointmentNotes"
+            ).value
+
+    };
+
+
+    appointments.push(
+        appointment
+    );
+
+
+    saveData();
+
+
+    closeModal(
+        "appointmentModal"
+    );
+
+
+    document
+        .getElementById(
+            "appointmentForm"
+        )
+        .reset();
+
+
+    renderDashboard();
+
+    renderAgenda();
+
+
+    if (currentSpecialty) {
+
+        renderSpecialty();
+
+    }
+
+
+    alert(
+        "Consulta cadastrada com sucesso!"
+    );
+
+}
+
+
+/* =====================================================
+   ESPECIALIDADE
+===================================================== */
+
+function renderSpecialty() {
+
+    if (!currentSpecialty) return;
+
+
+    const specialty =
+        getSpecialty(
+            currentSpecialty
+        );
+
+
+    const next =
+        getNextAppointment(
+            currentSpecialty
+        );
+
+
+    const specialtyAppointments =
+        appointments.filter(
+            appointment =>
+                appointment.specialty ===
+                currentSpecialty
+        );
+
+
+    const specialtyExams =
+        exams.filter(
+            exam =>
+                exam.specialty ===
+                currentSpecialty
+        );
+
+
+    /* Última visita */
+
+    const past =
+        specialtyAppointments
+            .filter(
+                appointment =>
+                    new Date(
+                        appointment.date
+                    ) < new Date()
+            )
+            .sort(
+                (a, b) =>
+                    new Date(b.date) -
+                    new Date(a.date)
+            );
+
+
+    document.getElementById(
+        "specialtyLastVisit"
+    ).textContent =
+        past.length
+        ?
+        formatDate(
+            past[0].date
+        )
+        :
+        "—";
+
+
+    /* Próxima */
+
+    document.getElementById(
+        "specialtyNext"
+    ).textContent =
+        next
+        ?
+        formatDate(
+            next.date
+        )
+        :
+        "—";
+
+
+    /* Contador */
+
+    document.getElementById(
+        "specialtyCountdown"
+    ).textContent =
+        next
+        ?
+        getDaysRemaining(
+            next.date
+        )
+        :
+        "—";
+
+
+    /* Exames */
+
+    document.getElementById(
+        "specialtyExamCount"
+    ).textContent =
+        specialtyExams.length;
+
+
+    /* Anotações */
+
+    const notes =
+        healthNotes[
+            currentSpecialty
+        ] || {};
+
+
+    document.getElementById(
+        "improvement"
+    ).value =
+        notes.improvement || "";
+
+
+    document.getElementById(
+        "actions"
+    ).value =
+        notes.actions || "";
+
+
+    document.getElementById(
+        "medications"
+    ).value =
+        notes.medications || "";
+
+
+    renderSpecialtyAppointment(
+        next
+    );
+
+
+    renderSpecialtyAppointments(
+        specialtyAppointments
+    );
+
+
+    renderSpecialtyExams(
+        specialtyExams
+    );
+
+}
+
+
+/* =====================================================
+   PRÓXIMA CONSULTA
+===================================================== */
+
+function getNextAppointment(
+    specialtyId
+) {
+
+    return appointments
+        .filter(
+            appointment =>
+                appointment.specialty ===
+                specialtyId &&
+                new Date(
+                    appointment.date
+                ) >= new Date()
+        )
+        .sort(
+            (a, b) =>
+                new Date(a.date) -
+                new Date(b.date)
+        )[0];
+
+}
+
+
+/* =====================================================
+   BOX PRÓXIMA CONSULTA
+===================================================== */
+
+function renderSpecialtyAppointment(
+    appointment
+) {
+
+    const container =
+        document.getElementById(
+            "specialtyAppointment"
+        );
+
+
+    if (!appointment) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhuma consulta futura.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML = `
+
+        <span>
+            Próxima consulta
+        </span>
+
+        <div class="big">
+            ${formatDate(
+                appointment.date
+            )}
+        </div>
+
+        <strong>
+            ${formatTime(
+                appointment.date
+            )}
+        </strong>
+
+        <p>
+            ${appointment.doctor || "Profissional não informado"}
+        </p>
+
+        <div
+            class="countdown"
+            data-date="${appointment.date}"
+        ></div>
+
+    `;
+
+}
+
+
+/* =====================================================
+   HISTÓRICO DE CONSULTAS
+===================================================== */
+
+function renderSpecialtyAppointments(
+    items
+) {
+
+    const container =
+        document.getElementById(
+            "specialtyAppointments"
+        );
+
+
+    if (!items.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhuma consulta registrada.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    const sorted =
+        [...items].sort(
+            (a, b) =>
+                new Date(b.date) -
+                new Date(a.date)
+        );
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Data
+                    </th>
+
+                    <th>
+                        Médico
+                    </th>
+
+                    <th>
+                        Local
+                    </th>
+
+                    <th>
+                        Status
+                    </th>
+
+                    <th>
+                        Observações
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                ${sorted.map(
+                    appointment => `
+
+                    <tr>
+
+                        <td>
+                            ${formatDateTime(
+                                appointment.date
+                            )}
+                        </td>
+
+                        <td>
+                            ${appointment.doctor || "—"}
+                        </td>
+
+                        <td>
+                            ${appointment.location || "—"}
+                        </td>
+
+                        <td>
+
+                            <span class="badge">
+
+                                ${
+                                    new Date(
+                                        appointment.date
+                                    ) < new Date()
+                                    ?
+                                    "REALIZADA"
+                                    :
+                                    "AGENDADA"
+                                }
+
+                            </span>
+
+                        </td>
+
+                        <td>
+                            ${appointment.notes || "—"}
+                        </td>
+
+                    </tr>
+
+                `
+                ).join("")}
+
+            </tbody>
+
+        </table>
+
+    `;
+
+}
+
+
+/* =====================================================
+   SALVAR ACOMPANHAMENTO
+===================================================== */
+
+function saveHealthNotes() {
+
+    if (!currentSpecialty) return;
+
+
+    healthNotes[
+        currentSpecialty
+    ] = {
+
+        improvement:
+            document.getElementById(
+                "improvement"
+            ).value,
+
+        actions:
+            document.getElementById(
+                "actions"
+            ).value,
+
+        medications:
+            document.getElementById(
+                "medications"
+            ).value
+
+    };
+
+
+    saveData();
+
+
+    alert(
+        "Acompanhamento salvo!"
+    );
+
+}
+
+
+/* =====================================================
+   EXAMES
+===================================================== */
+
+function openExamModal() {
+
+    document
+        .getElementById(
+            "examModal"
+        )
+        .classList.add(
+            "open"
+        );
+
+}
+
+
+/* =====================================================
+   SALVAR EXAME
+===================================================== */
+
+function saveExam(event) {
+
+    event.preventDefault();
+
+
+    if (!currentSpecialty) {
+
+        alert(
+            "Selecione uma especialidade."
+        );
+
+        return;
+
+    }
+
+
+    const file =
+        document.getElementById(
+            "examFile"
+        ).files[0];
+
+
+    if (file) {
+
+        const allowedTypes = [
+
+            "application/pdf",
+
+            "image/png",
+
+            "image/jpeg"
+
+        ];
+
+
+        if (
+            !allowedTypes.includes(
+                file.type
+            )
+        ) {
+
+            alert(
+                "Formato não permitido. Use PDF, PNG ou JPG."
+            );
+
+            return;
+
+        }
+
+    }
+
+
+    const exam = {
+
+        id:
+            Date.now(),
+
+        specialty:
+            currentSpecialty,
+
+        name:
+            document.getElementById(
+                "examName"
+            ).value,
+
+        date:
+            document.getElementById(
+                "examDate"
+            ).value,
+
+        notes:
+            document.getElementById(
+                "examNotes"
+            ).value,
+
+        fileName:
+            file
+            ?
+            file.name
+            :
+            null
+
+    };
+
+
+    exams.push(
+        exam
+    );
+
+
+    saveData();
+
+
+    closeModal(
+        "examModal"
+    );
+
+
+    document
+        .getElementById(
+            "examForm"
+        )
+        .reset();
+
+
+    renderSpecialty();
+
+    renderDashboard();
+
+
+    alert(
+        "Exame registrado com sucesso!"
+    );
+
+}
+
+
+/* =====================================================
+   MOSTRAR EXAMES
+===================================================== */
+
+function renderSpecialtyExams(
+    items
+) {
+
+    const container =
+        document.getElementById(
+            "specialtyExams"
+        );
+
+
+    if (!items.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhum exame registrado.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    const sorted =
+        [...items].sort(
+            (a, b) =>
+                new Date(b.date) -
+                new Date(a.date)
+        );
+
+
+    container.innerHTML = `
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Exame
+                    </th>
+
+                    <th>
+                        Data
+                    </th>
+
+                    <th>
+                        Arquivo
+                    </th>
+
+                    <th>
+                        Observações
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                ${sorted.map(
+                    exam => `
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                ${exam.name}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${formatDate(
+                                exam.date
+                            )}
+                        </td>
+
+                        <td>
+
+                            ${
+                                exam.fileName
+                                ?
+                                `
+                                <span class="badge green">
+                                    📎 ${exam.fileName}
+                                </span>
+                                `
+                                :
+                                "—"
+                            }
+
+                        </td>
+
+                        <td>
+                            ${exam.notes || "—"}
+                        </td>
+
+                    </tr>
+
+                `
+                ).join("")}
+
+            </tbody>
+
+        </table>
+
+    `;
+
+}
+
+
+/* =====================================================
+   EXAMES DE SANGUE
+===================================================== */
+
+function openBloodModal() {
+
+    document
+        .getElementById(
+            "bloodModal"
+        )
+        .classList.add(
+            "open"
+        );
+
+}
+
+
+function saveBloodResult(
+    event
+) {
+
+    event.preventDefault();
+
+
+    const result = {
+
+        id:
+            Date.now(),
+
+        marker:
+            document.getElementById(
+                "bloodMarker"
+            ).value,
+
+        value:
+            Number(
+                document.getElementById(
+                    "bloodValue"
+                ).value
+            ),
+
+        unit:
+            document.getElementById(
+                "bloodUnit"
+            ).value,
+
+        date:
+            document.getElementById(
+                "bloodDate"
+            ).value,
+
+        min:
+            Number(
+                document.getElementById(
+                    "bloodMin"
+                ).value
+            ),
+
+        max:
+            Number(
+                document.getElementById(
+                    "bloodMax"
+                ).value
+            ),
+
+        notes:
+            document.getElementById(
+                "bloodNotes"
+            ).value
+
+    };
+
+
+    bloodResults.push(
+        result
+    );
+
+
+    saveData();
+
+
+    closeModal(
+        "bloodModal"
+    );
+
+
+    renderBloodResults();
+
+
+    event.target.reset();
+
+
+    alert(
+        "Resultado salvo com sucesso!"
+    );
+
+}
+
+
+/* =====================================================
+   MOSTRAR RESULTADOS
+===================================================== */
+
+function renderBloodResults() {
+
+    const container =
+        document.getElementById(
+            "bloodResults"
+        );
+
+
+    if (!container) return;
+
+
+    if (!bloodResults.length) {
+
+        container.innerHTML = `
+            <div class="empty">
+                Nenhum exame de sangue registrado.
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    const groups = {};
+
+
+    bloodResults.forEach(
+        result => {
+
+            if (
+                !groups[
+                    result.marker
+                ]
+            ) {
+
+                groups[
+                    result.marker
+                ] = [];
+
+            }
+
+
+            groups[
+                result.marker
+            ].push(
+                result
+            );
+
+        }
+    );
+
+
+    let html = "";
+
+
+    Object.keys(
+        groups
+    ).forEach(
+        marker => {
+
+            const results =
+                groups[marker]
+                    .sort(
+                        (a, b) =>
+                            new Date(b.date) -
+                            new Date(a.date)
+                    );
+
+
+            const latest =
+                results[0];
+
+
+            const previous =
+                results[1];
+
+
+            let variation =
+                "Primeiro resultado";
+
+
+            if (previous) {
+
+                const difference =
+                    latest.value -
+                    previous.value;
+
+
+                const sign =
+                    difference >= 0
+                    ? "+"
+                    : "";
+
+
+                variation =
+                    `${sign}${difference.toFixed(2)} ${latest.unit || ""}`;
+
+            }
+
+
+            html += `
+
+                <div class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>
+                                ${marker}
+                            </h2>
+
+                            <p>
+                                Resultado mais recente:
+                                ${latest.value}
+                                ${latest.unit || ""}
+                            </p>
+
+                        </div>
+
+                        <span class="badge green">
+                            ${variation}
+                        </span>
+
+                    </div>
+
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Data
+                                </th>
+
+                                <th>
+                                    Resultado
+                                </th>
+
+                                <th>
+                                    Referência
+                                </th>
+
+                                <th>
+                                    Comparação
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            ${results.map(
+                                (result, index) => {
+
+                                    let comparison =
+                                        "—";
+
+
+                                    if (
+                                        index === 0
+                                        &&
+                                        previous
+                                    ) {
+
+                                        const diff =
+                                            result.value -
+                                            previous.value;
+
+
+                                        comparison =
+                                            `${diff >= 0 ? "+" : ""}${diff.toFixed(2)}`;
+
+                                    }
+
+
+                                    return `
+
+                                        <tr>
+
+                                            <td>
+                                                ${formatDate(
+                                                    result.date
+                                                )}
+                                            </td>
+
+                                            <td>
+
+                                                <strong>
+                                                    ${result.value}
+                                                </strong>
+
+                                                ${result.unit || ""}
+
+                                            </td>
+
+                                            <td>
+
+                                                ${
+                                                    result.min ||
+                                                    result.max
+                                                    ?
+                                                    `${result.min || "—"} - ${result.max || "—"}`
+                                                    :
+                                                    "—"
+                                                }
+
+                                            </td>
+
+                                            <td>
+                                                ${comparison}
+                                            </td>
+
+                                        </tr>
+
+                                    `;
+
+                                }
+                            ).join("")}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            `;
+
+        }
+    );
+
+
+    container.innerHTML =
+        html;
+
+}
+
+
+/* =====================================================
+   CONTADOR REGRESSIVO
+===================================================== */
+
+function startCountdowns() {
+
+    setInterval(
+        updateCountdowns,
+        1000
+    );
+
+}
+
+
+function updateCountdowns() {
+
+    document
+        .querySelectorAll(
+            "[data-date]"
+        )
+        .forEach(
+            element => {
+
+                element.textContent =
+                    countdown(
+                        element.dataset.date
+                    );
+
+            }
+        );
+
+}
+
+
+function countdown(
+    date
+) {
+
+    const target =
+        new Date(date).getTime();
+
+
+    const now =
+        new Date().getTime();
+
+
+    const difference =
+        target - now;
+
+
+    if (
+        difference <= 0
+    ) {
+
+        return "Agora";
+
+    }
+
+
+    const days =
+        Math.floor(
+            difference /
+            (
+                1000 *
+                60 *
+                60 *
+                24
+            )
+        );
+
+
+    const hours =
+        Math.floor(
+            (
+                difference %
+                (
+                    1000 *
+                    60 *
+                    60 *
+                    24
+                )
+            )
+            /
+            (
+                1000 *
+                60 *
+                60
+            )
+        );
+
+
+    const minutes =
+        Math.floor(
+            (
+                difference %
+                (
+                    1000 *
+                    60 *
+                    60
+                )
+            )
+            /
+            (
+                1000 *
+                60
+            )
+        );
+
+
+    const seconds =
+        Math.floor(
+            (
+                difference %
+                (
+                    1000 *
+                    60
+                )
+            )
+            /
+            1000
+        );
+
+
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+}
+
+
+/* =====================================================
+   DIAS RESTANTES
+===================================================== */
+
+function getDaysRemaining(
+    date
+) {
+
+    const target =
+        new Date(date);
+
+
+    const now =
+        new Date();
+
+
+    target.setHours(
+        0,
+        0,
+        0,
+        0
+    );
+
+
+    now.setHours(
+        0,
+        0,
+        0,
+        0
+    );
+
+
+    const difference =
+        target - now;
+
+
+    const days =
+        Math.ceil(
+            difference /
+            (
+                1000 *
+                60 *
+                60 *
+                24
+            )
+        );
+
+
+    if (days < 0) {
+
+        return "Consulta passada";
+
+    }
+
+
+    if (days === 0) {
+
+        return "Hoje";
+
+    }
+
+
+    if (days === 1) {
+
+        return "1 dia";
+
+    }
+
+
+    return `${days} dias`;
+
+}
+
+
+/* =====================================================
+   DATAS
+===================================================== */
+
+function formatDate(
+    date
+) {
+
+    if (!date) {
+
+        return "—";
+
+    }
+
+
+    return new Intl.DateTimeFormat(
+        "pt-BR"
+    ).format(
+        new Date(date)
+    );
+
+}
+
+
+function formatTime(
+    date
+) {
+
+    return new Intl.DateTimeFormat(
+        "pt-BR",
+        {
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    ).format(
+        new Date(date)
+    );
+
+}
+
+
+function formatDateTime(
+    date
+) {
+
+    return new Intl.DateTimeFormat(
+        "pt-BR",
+        {
+            dateStyle: "short",
+            timeStyle: "short"
+        }
+    ).format(
+        new Date(date)
+    );
+
+}
+
+
+/* =====================================================
+   MODAIS
+===================================================== */
+
+function closeModal(
+    id
+) {
+
+    document
+        .getElementById(
+            id
+        )
+        .classList.remove(
+            "open"
+        );
+
+}
+
+
+/* =====================================================
+   SALVAR LOCALSTORAGE
+===================================================== */
+
+function saveData() {
+
+    localStorage.setItem(
+        "healthAppointments",
+        JSON.stringify(
+            appointments
+        )
+    );
+
+
+    localStorage.setItem(
+        "healthExams",
+        JSON.stringify(
+            exams
+        )
+    );
+
+
+    localStorage.setItem(
+        "healthBloodResults",
+        JSON.stringify(
+            bloodResults
+        )
+    );
+
+
+    localStorage.setItem(
+        "healthNotes",
+        JSON.stringify(
+            healthNotes
+        )
+    );
+
+}
+
+
+/* =====================================================
+   FECHAR MODAL CLICANDO FORA
+===================================================== */
+
+document.addEventListener(
+    "click",
+    function (event) {
+
+        if (
+            event.target.classList.contains(
+                "modal"
+            )
+        ) {
+
+            event.target.classList.remove(
+                "open"
+            );
+
+        }
+
+    }
+);
